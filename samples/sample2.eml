@@ -1,0 +1,19 @@
+From: "Microsoft Security" <no-reply@microsoft.com>
+Reply-To: "Microsoft Security" <no-reply@microsoft.com>
+To: you@example.com
+Subject: Unusual sign-in activity detected
+Date: Wed, 24 Jan 2026 13:20:00 +0000
+MIME-Version: 1.0
+Authentication-Results: mx.google.com; spf=pass smtp.mailfrom=microsoft.com; dkim=pass header.i=@microsoft.com; dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=microsoft.com
+Received-SPF: pass (google.com: domain of no-reply@microsoft.com designates 40.92.0.1 as permitted sender) client-ip=40.92.0.1;
+ARC-Authentication-Results: i=1; mx.google.com; spf=pass smtp.mailfrom=microsoft.com; dkim=pass header.i=@microsoft.com; dmarc=pass header.from=microsoft.com
+Content-Type: text/plain; charset="UTF-8"
+
+We detected an unusual sign-in to your account.
+
+Review activity:
+hxxps://account-security[.]microsoft-login[.]com/verify
+
+If you are unable to access, use:
+hxxps://tinyurl[.]com/secure-check
+
