@@ -34,7 +34,6 @@ import os
 import re
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from email import policy
 from email.parser import BytesParser
@@ -674,13 +673,26 @@ def decide_verdict_v2(
     thresholds = (config.get("scoring", {}) or {}).get("thresholds", {"phish": 12, "suspicious": 7})
     require_two = bool((config.get("scoring", {}) or {}).get("require_two_categories_for_phish", True))
 
-    categories = set()
-    if any(r["score"] >= 4 for r in url_rows): categories.add("url")
-    if from_reply_mismatch or returnpath_mismatch: categories.add("header")
-    if any(a.get("risk_score", 0) >= 3 for a in attachments): categories.add("attachment")
-    if brand_notes: categories.add("brand")
-    if content_notes: categories.add("content")
-    if intel_notes: categories.add("intel")
+categories = set()
+
+if any(r["score"] >= 4 for r in url_rows):
+    categories.add("url")
+
+if from_reply_mismatch or returnpath_mismatch:
+    categories.add("header")
+
+if any(a.get("risk_score", 0) >= 3 for a in attachments):
+    categories.add("attachment")
+
+if brand_notes:
+    categories.add("brand")
+
+if content_notes:
+    categories.add("content")
+
+if intel_notes:
+    categories.add("intel")
+
 
     reasons: List[str] = []
     # keep reasons short and useful
