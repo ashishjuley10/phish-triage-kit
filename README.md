@@ -1,69 +1,109 @@
-# Phish Triage Kit 🛡️
-A lightweight phishing triage tool that parses `.eml` emails, extracts IOCs, surfaces email authentication signals (SPF/DKIM/DMARC), and produces an analyst-style verdict report + IOC exports for enrichment/blocking workflows.
+# Phish Triage Kit (SOC-Style) : Email Triage, IOC Extraction, Enrichment, and Campaign Correlation
 
-> Built to demonstrate junior SOC / Threat Research capability: evidence-led analysis, repeatable triage, and clean outputs.
+Phish Triage Kit is a Linux-friendly phishing triage tool that converts `.eml` emails into SOC-ready outputs: extracted indicators (URLs/domains/IPs/hashes), risk scoring and verdicting, optional threat-intelligence enrichment (URLhaus/VirusTotal/AbuseIPDB), and campaign correlation across large batches of emails.
 
----
-
-## Why this exists
-Most “phishing projects” stop at *finding URLs*. In real triage you need:
-- **Evidence** (what indicators exist and why they matter)
-- **Context** (auth signals that reduce/raise spoofing likelihood)
-- **Outputs that feed operations** (CSV IOCs, report for ticketing)
-
-This tool converts raw email artifacts into **actionable triage output**.
+This project is designed to demonstrate practical Threat Research / SOC automation skills: triaging high volumes of phishing artifacts, enriching IOCs with industry sources, and clustering related emails into campaigns.
 
 ---
 
-## What it does (Features)
-✅ Parses `.eml` including multipart emails (text + HTML)  
-✅ Extracts URLs from:
-- plain text
-- HTML `href` attributes  
-✅ Deobfuscates common patterns (e.g., `hxxp`, `[.]`)  
-✅ Scores URL indicators (explainable):
-- URL shorteners
-- IP-host URLs
-- HTTP (not HTTPS)
-- suspicious TLDs
-- punycode domains  
-✅ Extracts attachments (if present) and calculates **SHA-256**  
-✅ Surfaces authentication context (if present in headers):
-- `Authentication-Results`
-- `Received-SPF`
-- `ARC-Authentication-Results`  
-✅ Generates two outputs:
-- `outputs/iocs.csv` — IOCs for enrichment/blocking
-- `outputs/report.md` — analyst report (verdict + confidence + evidence + next steps)
+## What this tool does
+
+Given a single `.eml` file or a directory of `.eml` files, the tool:
+
+1. Parses emails (including multipart emails and HTML content).
+2. Extracts and deobfuscates IOCs, especially URLs (e.g., `hxxp` → `http`, `evil[.]com` → `evil.com`).
+3. Scores risk signals (URL properties, header mismatches, brand impersonation, and social-engineering language).
+4. Produces a verdict (`Phish`, `Suspicious`, `Needs Review`) with concise reasons.
+5. Optionally enriches IOCs using threat-intelligence providers with caching and rate limiting.
+6. In batch mode, correlates emails into campaigns based on shared indicators.
 
 ---
 
-## Outputs (What you get)
-### 1) Analyst Report (`outputs/report.md`)
-Includes:
-- **Verdict**: `Suspicious` / `Needs Review`
-- **Confidence**: `High` / `Medium` / `Low`
-- **Reasons**: evidence-based indicators
-- **Message metadata**: From, Reply-To, domain checks
-- **Auth signals**: SPF/DKIM/DMARC context (if present)
-- **Top URLs ranked by score**
-- **Attachments section** (hashes + metadata)
-- **Recommended next steps**
+## Features
 
-### 2) IOC Export (`outputs/iocs.csv`)
-Columns:
-- `type` (url / domain / file_sha256)
-- `value`
-- `score`
-- `notes`
+### Email parsing
+- Supports `.eml` parsing with the Python email library.
+- Extracts content from:
+  - `text/plain`
+  - `text/html` (with a safe/limited HTML-to-text conversion)
+
+### IOC extraction
+- URL extraction from:
+  - visible text
+  - HTML `href=...` attributes
+- URL deobfuscation of common patterns:
+  - `hxxp://` / `hxxps://` → `http://` / `https://`
+  - `[.]` / `(.)` / `{.}` → `.`
+  - some whitespace/dot obfuscation patterns
+- IOC inventory:
+  - URLs
+  - Domains (from URL hosts)
+  - IPs (from IP-hosted URLs)
+  - Attachment SHA-256 hashes
+
+### Risk scoring and verdicting
+- URL scoring heuristics:
+  - IP-hosted URLs
+  - URL shorteners
+  - punycode / IDN indicators
+  - suspicious TLDs
+  - phishing keyword patterns in paths (login/verify/update/secure/etc.)
+  - non-HTTPS usage
+  - long/complex URLs and excessive subdomains
+- Brand impersonation detection:
+  - brand keyword presence in domains (e.g., `paypal-verify...`)
+  - typosquatting detection using Levenshtein distance on base domains
+  - punycode presence indicators
+- Social-engineering language heuristics:
+  - urgency language
+  - credential requests
+  - threat/consequence language
+  - generic greetings (low personalization)
+- Header mismatch signals:
+  - From vs Reply-To domain mismatch
+  - From vs Return-Path domain mismatch
+- Verdict logic:
+  - `Phish`, `Suspicious`, or `Needs Review`
+  - configurable thresholds
+  - optional rule requiring at least two indicator categories for `Phish`
+
+### Batch mode and scale
+- Batch processing of a directory containing `.eml` files.
+- Optional parallel execution with configurable worker count.
+- Batch summary metrics:
+  - processed count
+  - elapsed time
+  - throughput (emails/sec)
+- Campaign correlation:
+  - clusters emails by shared domains, IPs, and attachment hashes
+
+### Threat-intelligence enrichment (optional)
+- URLhaus (no API key required)
+- VirusTotal (API key via environment variable)
+- AbuseIPDB (API key via environment variable)
+- Caching to reduce repeated queries across runs
+- Rate limiting for providers with request-per-minute constraints
+
+### Outputs
+Per email:
+- `report.json` (structured, tool-friendly output)
+- `report.md` (human-readable summary)
+- `iocs.csv` (simple tabular IOC export)
+
+Batch:
+- `batch_summary.json`
+- `batch_results.json`
+- `batch_campaigns.json`
+- `batch_enrichment.json` (when enrichment enabled)
+- `batch_results_enriched.json` (when enrichment enabled)
 
 ---
 
-## Quickstart (60 seconds)
-### Prerequisites
-- Python 3.10+ recommended
+## Requirements
 
-### Run
+- Python 3.10+ recommended (works well on Linux)
+- Dependencies are listed in `requirements.txt`
+
+Install dependencies:
 ```bash
-python3 phish_triage.py samples/sample1.eml --outdir outputs
-python3 phish_triage.py samples/sample2.eml --outdir outputs
+pip install -r requirements.txt
