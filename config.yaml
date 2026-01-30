@@ -1,0 +1,35 @@
+general:
+  outdir: outputs
+  parallel: true
+  workers: 8
+  timeout_seconds: 10
+
+scoring:
+  thresholds:
+    phish: 12
+    suspicious: 7
+  require_two_categories_for_phish: true
+
+brands:
+  domains:
+    - paypal.com
+    - amazon.com
+    - microsoft.com
+    - apple.com
+    - google.com
+    - facebook.com
+    - netflix.com
+    - dhl.com
+    - fedex.com
+
+threat_intel:
+  urlhaus:
+    enabled: true
+  virustotal:
+    enabled: false
+    api_key_env: VT_API_KEY
+    rpm: 4
+  abuseipdb:
+    enabled: false
+    api_key_env: ABUSEIPDB_API_KEY
+    rpm: 10

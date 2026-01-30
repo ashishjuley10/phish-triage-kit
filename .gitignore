@@ -1,6 +1,16 @@
-.venv/
+# Python
 __pycache__/
 *.pyc
-.env
-outputs/*.csv
-outputs/*.md
+.venv/
+venv/
+
+# Outputs / runs
+outputs*/
+perf_test/
+samples_big/
+.cache/
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
