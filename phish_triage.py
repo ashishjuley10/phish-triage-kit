@@ -669,45 +669,58 @@ def decide_verdict_v2(
     config: dict,
     intel_notes: Optional[List[str]] = None,
 ) -> Tuple[str, str, List[str]]:
+    thresholds = (config.get("scoring", {}) or {}).get(
+        "thresholds", {"phish": 12, "suspicious": 7}
+    )
+    require_two = bool(
+        (config.get("scoring", {}) or {}).get(
+            "require_two_categories_for_phish", True
+        )
+    )
 
-    thresholds = (config.get("scoring", {}) or {}).get("thresholds", {"phish": 12, "suspicious": 7})
-    require_two = bool((config.get("scoring", {}) or {}).get("require_two_categories_for_phish", True))
+    intel_notes = intel_notes or []
 
-categories = set()
+    categories = set()
 
-if any(r["score"] >= 4 for r in url_rows):
-    categories.add("url")
+    if any(r.get("score", 0) >= 4 for r in url_rows):
+        categories.add("url")
 
-if from_reply_mismatch or returnpath_mismatch:
-    categories.add("header")
+    if from_reply_mismatch or returnpath_mismatch:
+        categories.add("header")
 
-if any(a.get("risk_score", 0) >= 3 for a in attachments):
-    categories.add("attachment")
+    if any(a.get("risk_score", 0) >= 3 for a in attachments):
+        categories.add("attachment")
 
-if brand_notes:
-    categories.add("brand")
+    if brand_notes:
+        categories.add("brand")
 
-if content_notes:
-    categories.add("content")
+    if content_notes:
+        categories.add("content")
 
-if intel_notes:
-    categories.add("intel")
-
+    if intel_notes:
+        categories.add("intel")
 
     reasons: List[str] = []
+
     # keep reasons short and useful
     for r in url_rows:
-        if r["score"] >= 4:
-            reasons.append(f"url:{','.join(r['notes'])}")
-            if len(reasons) >= 3: break
+        if r.get("score", 0) >= 4:
+            reasons.append(f"url:{','.join(r.get('notes', []) or [])}")
+            if len(reasons) >= 3:
+                break
+
     reasons += brand_notes[:3]
     reasons += content_notes[:3]
+
     if from_reply_mismatch:
         reasons.append("from_reply_to_domain_mismatch")
+
     if returnpath_mismatch:
         reasons.append("return_path_from_domain_mismatch")
+
     if any(a.get("risk_score", 0) > 0 for a in attachments):
         reasons.append("attachment_present")
+
     if intel_notes:
         reasons += intel_notes[:3]
 
@@ -728,14 +741,15 @@ if intel_notes:
         verdict = "Suspicious"
         confidence = "Medium"
 
-    # Auth passes reduce spoofing likelihood; don't override strong malicious signals, just reduce confidence
-    if all_auth_pass and confidence == "High" and verdict != "Phish":
+    # If SPF/DKIM/DMARC all pass, reduce confidence (doesn't override verdict)
+    if all_auth_pass and confidence == "High":
         confidence = "Medium"
 
     if not reasons:
         reasons = ["insufficient_indicators"]
 
     return verdict, confidence, reasons
+
 
 
 # ----------------------------
