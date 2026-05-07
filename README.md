@@ -1,769 +1,254 @@
-# Phish Triage Kit (SOC-Style): Email Triage, IOC Extraction, Enrichment, and Campaign Correlation
+# Phish Triage Kit
 
-[![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/ashishjuley10/phish-triage-kit/graphs/commit-activity)
+Python-based phishing email triage tool for parsing `.eml` files, extracting indicators of compromise (IOCs), scoring suspicious signals, and producing analyst-friendly outputs for single-email or batch review.
 
-A comprehensive Linux-friendly phishing triage tool that converts `.eml` emails into SOC-ready outputs: extracted indicators (URLs/domains/IPs/hashes), risk scoring and verdicting, optional threat-intelligence enrichment (URLhaus/VirusTotal/AbuseIPDB), and campaign correlation across large batches of emails.
+This project demonstrates practical junior threat research skills: phishing email analysis, malicious URL triage, IOC extraction, repeatable reporting, campaign-style grouping, and Python automation for high-volume security artifacts.
 
-This project is designed to demonstrate practical **Threat Research / SOC automation skills**: triaging high volumes of phishing artifacts, enriching IOCs with industry sources, and clustering related emails into campaigns.
+## What it does
 
----
+- Analyses single `.eml` files
+- Analyses folders of `.eml` files in batch mode
+- Extracts URLs, domains, IP addresses, and attachment hashes
+- Defangs suspicious indicators for safe reporting
+- Reviews basic header/authentication fields where available
+- Scores phishing signals using rule-based logic
+- Produces JSON, CSV, and Markdown reports
+- Groups related emails into campaign-style clusters using shared indicators
+- Supports optional enrichment using URLhaus, VirusTotal, and AbuseIPDB
+- Supports parallel batch processing with configurable workers
 
-## 🎯 Key Features
+## Why I built it
 
-- **📧 Email Parsing**: Extracts metadata, headers, body content, and attachments from `.eml` files
-- **🔍 IOC Extraction**: Automatically identifies and extracts URLs, domains, IP addresses, email addresses, and file hashes
-- **🛡️ SPF/DKIM/DMARC Analysis**: Surfaces authentication signals to assess email legitimacy
-- **⚖️ Risk Scoring & Verdicting**: Generates analyst-style verdicts (Malicious/Suspicious/Clean) with confidence scores
-- **🌐 Threat Intelligence Enrichment**: Optional integration with URLhaus, VirusTotal, and AbuseIPDB for IOC reputation checks
-- **📊 Campaign Correlation**: Clusters related phishing emails based on shared IOCs and patterns
-- **🔄 Batch Processing**: Analyze multiple emails simultaneously for efficient SOC workflows
-- **📄 Multiple Output Formats**: Generate reports in text, JSON, or HTML formats
-- **🎨 SOC-Ready Reports**: Professional, structured output suitable for incident response documentation
+Phishing emails often contain repeated indicators such as suspicious domains, IP-hosted URLs, URL shorteners, impersonation patterns, and credential-request language.
 
----
+Manually checking these across many emails is slow and inconsistent. This tool automates first-pass triage so an analyst can quickly see:
 
-## 📋 Table of Contents
+- what indicators were found
+- why the email looks suspicious
+- what the risk score is
+- whether emails share campaign indicators
+- what outputs can be passed into another workflow
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Features in Detail](#features-in-detail)
-- [Output Examples](#output-examples)
-- [API Keys Setup](#api-keys-setup)
-- [Security Considerations](#security-considerations)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+The tool is not designed to replace a human analyst. It is designed to reduce repetitive work and give analysts a structured starting point.
 
----
-
-## 🚀 Installation
-
-### Prerequisites
-
-- **Python 3.7+**
-- **pip** (Python package manager)
-- **Linux/macOS** (recommended) or Windows with WSL
-- Internet connection (for threat intelligence enrichment)
-
-### Step 1: Clone the Repository
+## Installation
 
 ```bash
 git clone https://github.com/ashishjuley10/phish-triage-kit.git
 cd phish-triage-kit
-```
-
-### Step 2: Create Virtual Environment (Recommended)
-
-```bash
-# Create virtual environment
 python3 -m venv venv
-
-# Activate virtual environment
-# Linux/macOS:
 source venv/bin/activate
-
-# Windows:
-venv\\Scripts\\activate
-```
-
-### Step 3: Install Dependencies
-
-```bash
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 4: Verify Installation
+Check the CLI:
 
 ```bash
-python phish_triage.py --help
+python3 phish_triage.py --help
 ```
 
-If you see the help menu, installation was successful! ✅
+## Usage
 
----
-
-## ⚡ Quick Start
-
-### Analyze a Single Email
+Analyse one email:
 
 ```bash
-python phish_triage.py -f samples/phishing_email.eml
+python3 phish_triage.py samples/sample1.eml --outdir outputs/sample1 --formats json,csv,markdown
 ```
 
-### Batch Analysis with Enrichment
+Analyse a batch of emails:
 
 ```bash
-python phish_triage.py -d samples/ --enrich --output reports/
+python3 phish_triage.py --batch samples --outdir outputs/batch --formats json,csv,markdown
 ```
 
-### Generate JSON Report
+Analyse a batch using parallel processing:
 
 ```bash
-python phish_triage.py -f email.eml --format json -o report.json
+python3 phish_triage.py --batch samples --outdir outputs/batch_parallel --parallel --workers 4 --formats json,csv,markdown
 ```
 
----
-
-## 📖 Usage
-
-### Command-Line Options
+Run optional threat-intelligence enrichment:
 
 ```bash
-python phish_triage.py [OPTIONS]
-
-Required (one of):
-  -f, --file FILE              Path to single .eml file
-  -d, --directory DIR          Path to directory containing .eml files
-
-Optional:
-  -o, --output PATH            Output directory for reports (default: ./reports/)
-  --format FORMAT              Output format: text|json|html (default: text)
-  --enrich                     Enable threat intelligence enrichment
-  --campaign                   Enable campaign correlation analysis
-  --extract-attachments        Extract email attachments to disk
-  --no-verdict                 Skip automatic verdict generation
-  -v, --verbose                Enable verbose logging
-  -h, --help                   Show help message
+python3 phish_triage.py --batch samples --outdir outputs/enriched --enrich urlhaus,virustotal,abuseipdb --formats json,csv,markdown
 ```
 
-### Usage Examples
+## CLI options
 
-**1. Basic Email Analysis**
-```bash
-python phish_triage.py -f suspicious_email.eml
+```text
+python3 phish_triage.py [eml_path] [options]
+
+eml_path              Path to .eml file for single-email mode
+
+--batch BATCH         Directory containing .eml files for batch mode
+--outdir OUTDIR       Output directory
+--config CONFIG       Path to config file, default: config.yaml
+--parallel            Enable parallel processing in batch mode
+--workers WORKERS     Number of workers for parallel batch mode
+--formats FORMATS     Comma list: json,csv,markdown
+--enrich ENRICH       Comma list: urlhaus,virustotal,abuseipdb
+--log-level LEVEL     DEBUG, INFO, WARNING, or ERROR
 ```
 
-**2. Batch Processing with Enrichment**
-```bash
-python phish_triage.py -d ./emails/ --enrich --format json
+## Example output
+
+Example verdict from a phishing-style sample:
+
+```text
+Verdict: Phish
+Confidence: High
+Risk Score: 17
+
+Reasons:
+- IP-hosted URL
+- Non-HTTPS link
+- Suspicious phishing keywords
+- Credential-request language
 ```
 
-**3. Full SOC Analysis (Enrichment + Campaign Correlation)**
-```bash
-python phish_triage.py -d ./inbox/ --enrich --campaign -o ./triage_reports/
+Example extracted IOCs:
+
+| Type | Value |
+|---|---|
+| URL | `http://185.92.10.10/update` |
+| URL | `https://bit.ly/abc123` |
+| URL | `https://paypai-secure.com/login` |
+| Domain | `paypai-secure.com` |
+| Domain | `bit.ly` |
+| IP | `185.92.10.10` |
+
+## Batch and campaign output
+
+In batch mode, the tool can produce:
+
+```text
+batch_results.json
+batch_summary.json
+batch_campaigns.json
 ```
 
-**4. Extract Attachments for Further Analysis**
-```bash
-python phish_triage.py -f email.eml --extract-attachments -o ./extracted/
-```
-
-**5. Verbose Mode for Debugging**
-```bash
-python phish_triage.py -f email.eml -v
-```
-
----
-
-## ⚙️ Configuration
-
-### config.yaml Overview
-
-The `config.yaml` file controls tool behavior and API integrations:
-
-```yaml
-# Threat Intelligence APIs
-threat_intel:
-  urlhaus:
-    enabled: true
-    api_url: "https://urlhaus-api.abuse.ch/v1/"
-  
-  virustotal:
-    enabled: true
-    api_key: "YOUR_VT_API_KEY_HERE"
-  
-  abuseipdb:
-    enabled: true
-    api_key: "YOUR_ABUSEIPDB_KEY_HERE"
+`batch_campaigns.json` groups related emails using shared indicators such as domains, IP addresses, URLs, or attachment hashes.
 
-# Verdict Thresholds
-scoring:
-  malicious_threshold: 70    # Score >= 70 = Malicious
-  suspicious_threshold: 40   # Score >= 40 = Suspicious
-  
-# Campaign Correlation
-campaign:
-  min_common_iocs: 3        # Minimum shared IOCs to link emails
-  similarity_threshold: 0.7  # Subject/body similarity threshold
-```
-
-### Environment Variables (Alternative)
-
-For better security, use environment variables instead of hardcoding API keys:
-
-```bash
-export VIRUSTOTAL_API_KEY="your_api_key_here"
-export ABUSEIPDB_API_KEY="your_api_key_here"
-```
-
----
-
-## 🔬 Features in Detail
-
-### 1. Email Metadata Extraction
-
-Extracts comprehensive email metadata:
-- **Headers**: From, To, Subject, Date, Message-ID, Reply-To
-- **Routing**: Received headers, originating IP addresses
-- **Authentication**: SPF, DKIM, DMARC results
-- **Attachments**: Filenames, MIME types, sizes, hashes
-
-### 2. IOC Extraction
-
-Automatically identifies and extracts:
-- **URLs**: Full URL extraction with defanging support
-- **Domains**: Parent domains and subdomains
-- **IP Addresses**: IPv4 and IPv6 addresses
-- **Email Addresses**: Sender, reply-to, and embedded addresses
-- **File Hashes**: MD5, SHA1, SHA256 of attachments
-
-### 3. Threat Intelligence Enrichment
-
-Enriches IOCs using multiple sources:
-
-**URLhaus**
-- URL reputation and threat classification
-- Associated malware families
-- First seen/last seen timestamps
-
-**VirusTotal**
-- URL/domain/IP/file hash reputation
-- Detection ratios from multiple engines
-- Community votes and comments
-
-**AbuseIPDB**
-- IP address abuse reports
-- Confidence scores
-- Geolocation data
-
-### 4. Risk Scoring & Verdicting
-
-Automated risk assessment based on:
-- Authentication failures (SPF/DKIM/DMARC)
-- Known malicious IOCs from threat intel
-- Suspicious patterns (URL shorteners, file extensions)
-- Domain age and reputation
-- Attachment types
-
-**Verdict Categories**:
-- 🔴 **Malicious** (Score: 70-100): Clear indicators of phishing/malware
-- 🟡 **Suspicious** (Score: 40-69): Multiple red flags, needs investigation
-- 🟢 **Clean** (Score: 0-39): Likely legitimate email
-
-### 5. Campaign Correlation
-
-Links related phishing emails by analyzing:
-- Shared IOCs (URLs, domains, IPs, hashes)
-- Subject line similarity
-- Sender patterns
-- Temporal proximity
-- Body content similarity
-
-**Output**: Campaign clusters with shared characteristics and timeline
-
-### 6. Batch Processing
-
-Efficiently process large volumes of emails:
-- Parallel processing support
-- Progress tracking
-- Aggregate statistics
-- Campaign-wide reporting
-
----
-
-## 📊 Output Examples
-
-### Text Report (Analyst-Ready)
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║              PHISHING TRIAGE REPORT                          ║
-╚══════════════════════════════════════════════════════════════╝
-
-Analysis Timestamp: 2026-01-30 15:42:11 UTC
-Email File: suspicious_email.eml
-
-┌─────────────────────────────────────────────────────────────┐
-│ EMAIL METADATA                                               │
-└─────────────────────────────────────────────────────────────┘
-From:           security@paypa1-verify.com
-To:             victim@company.com
-Subject:        Urgent: Account Verification Required
-Date:           2026-01-29 14:23:11 UTC
-Message-ID:     <abc123@malicious-server.com>
-
-┌─────────────────────────────────────────────────────────────┐
-│ AUTHENTICATION ANALYSIS                                      │
-└─────────────────────────────────────────────────────────────┘
-SPF:            ❌ FAIL (IP not authorized)
-DKIM:           ❌ NONE (No signature present)
-DMARC:          ❌ FAIL (Policy: reject)
-
-Originating IP: 185.220.101.45
-Geolocation:    Russia, Moscow
-
-┌─────────────────────────────────────────────────────────────┐
-│ EXTRACTED IOCs                                               │
-└─────────────────────────────────────────────────────────────┘
-
-URLs (3):
-  [1] http://paypa1-verify[.]com/secure/login
-      ├─ URLhaus: MALICIOUS (Phishing)
-      └─ VirusTotal: 42/89 engines flagged
-
-  [2] http://bit[.]ly/3xYz123
-      ├─ Redirect to: http://credential-harvester[.]net
-      └─ URL Shortener detected
-
-  [3] http://malicious-cdn[.]ru/invoice.pdf.exe
-      └─ Suspicious file extension: .pdf.exe
-
-Domains (2):
-  [1] paypa1-verify[.]com (Typosquatting: paypal.com)
-      ├─ Created: 2 days ago
-      └─ Registrar: NameCheap (commonly abused)
-
-  [2] credential-harvester[.]net
-      └─ VirusTotal: 38/89 engines flagged
-
-IP Addresses (1):
-  [1] 185.220.101[.]45
-      ├─ AbuseIPDB: 95% confidence (78 reports)
-      └─ Country: Russia
-
-┌─────────────────────────────────────────────────────────────┐
-│ ATTACHMENTS                                                  │
-└─────────────────────────────────────────────────────────────┘
-[1] invoice.pdf.exe
-    ├─ Size: 2.4 MB
-    ├─ MD5: 5d41402abc4b2a76b9719d911017c592
-    ├─ SHA256: 2c26b46b68ffc68ff99b453c1d30413413...
-    └─ VirusTotal: 54/72 engines detected as malware
-
-┌─────────────────────────────────────────────────────────────┐
-│ RISK ASSESSMENT                                              │
-└─────────────────────────────────────────────────────────────┘
-Overall Risk Score: 92/100
-
-Verdict: 🔴 MALICIOUS
-Confidence: 95%
-
-Risk Factors:
-  ✗ All email authentication checks failed
-  ✗ Multiple known malicious IOCs
-  ✗ Domain typosquatting detected
-  ✗ Malicious attachment confirmed
-  ✗ Sender from high-risk country
-  ✗ Recently registered domain
-
-┌─────────────────────────────────────────────────────────────┐
-│ ANALYST RECOMMENDATIONS                                      │
-└─────────────────────────────────────────────────────────────┘
-1. QUARANTINE this email immediately
-2. Block sender domain: paypa1-verify[.]com
-3. Add IOCs to threat intelligence feeds
-4. Check for similar emails in environment
-5. Notify end user of phishing attempt
-6. Report to abuse contacts and registrar
-
-╔══════════════════════════════════════════════════════════════╗
-║                   END OF REPORT                              ║
-╚══════════════════════════════════════════════════════════════╝
-```
-
-### JSON Report (SIEM Integration)
-
-```json
-{
-  "analysis_metadata": {
-    "timestamp": "2026-01-30T15:42:11Z",
-    "tool_version": "1.0.0",
-    "email_file": "suspicious_email.eml"
-  },
-  "email_metadata": {
-    "from": "security@paypa1-verify.com",
-    "to": "victim@company.com",
-    "subject": "Urgent: Account Verification Required",
-    "date": "2026-01-29T14:23:11Z",
-    "message_id": "<abc123@malicious-server.com>"
-  },
-  "authentication": {
-    "spf": {
-      "result": "FAIL",
-      "details": "IP not authorized"
-    },
-    "dkim": {
-      "result": "NONE",
-      "details": "No signature present"
-    },
-    "dmarc": {
-      "result": "FAIL",
-      "policy": "reject"
-    }
-  },
-  "iocs": {
-    "urls": [
-      {
-        "url": "http://paypa1-verify.com/secure/login",
-        "defanged": "http://paypa1-verify[.]com/secure/login",
-        "enrichment": {
-          "urlhaus": {
-            "status": "malicious",
-            "category": "phishing"
-          },
-          "virustotal": {
-            "detections": 42,
-            "total_engines": 89,
-            "detection_rate": 0.47
-          }
-        }
-      }
-    ],
-    "domains": [
-      {
-        "domain": "paypa1-verify.com",
-        "typosquatting": {
-          "detected": true,
-          "target": "paypal.com"
-        },
-        "age_days": 2,
-        "registrar": "NameCheap"
-      }
-    ],
-    "ips": [
-      {
-        "ip": "185.220.101.45",
-        "geolocation": {
-          "country": "Russia",
-          "city": "Moscow"
-        },
-        "abuseipdb": {
-          "confidence_score": 95,
-          "total_reports": 78
-        }
-      }
-    ]
-  },
-  "attachments": [
-    {
-      "filename": "invoice.pdf.exe",
-      "size_bytes": 2516582,
-      "md5": "5d41402abc4b2a76b9719d911017c592",
-      "sha256": "2c26b46b68ffc68ff99b453c1d30413413...",
-      "virustotal": {
-        "detections": 54,
-        "total_engines": 72,
-        "verdict": "malicious"
-      }
-    }
-  ],
-  "risk_assessment": {
-    "score": 92,
-    "verdict": "malicious",
-    "confidence": 95,
-    "risk_factors": [
-      "authentication_failure",
-      "known_malicious_iocs",
-      "typosquatting",
-      "malicious_attachment",
-      "high_risk_country",
-      "newly_registered_domain"
-    ]
-  },
-  "recommendations": [
-    "quarantine_email",
-    "block_sender_domain",
-    "add_iocs_to_threat_feeds",
-    "search_for_similar_emails",
-    "notify_user",
-    "report_abuse"
-  ]
-}
-```
-
----
-
-## 🔑 API Keys Setup
-
-### VirusTotal API
-
-1. Create account at https://www.virustotal.com/
-2. Navigate to your profile → API Key
-3. Copy your API key
-4. Add to `config.yaml` or set environment variable:
-   ```bash
-   export VIRUSTOTAL_API_KEY="your_key_here"
-   ```
-
-### AbuseIPDB API
-
-1. Register at https://www.abuseipdb.com/
-2. Go to Account → API → Create Key
-3. Copy your API key
-4. Add to `config.yaml` or set environment variable:
-   ```bash
-   export ABUSEIPDB_API_KEY="your_key_here"
-   ```
-
-### URLhaus
-
-URLhaus API is **free and requires no API key**. It's enabled by default.
-
----
-
-## 🔒 Security Considerations
-
-### ⚠️ Critical Security Warnings
-
-1. **Isolated Environment**: Always run this tool in an isolated environment (VM, sandbox, or air-gapped system) when analyzing potentially malicious emails.
-
-2. **Malware Risk**: Email attachments may contain active malware. **NEVER** execute or open extracted attachments on production systems.
-
-3. **Network Exposure**: When enrichment is enabled, the tool will connect to external threat intelligence APIs. Ensure appropriate network segmentation.
-
-4. **Data Privacy**: Emails may contain sensitive or confidential information. Comply with your organization's data handling policies and applicable privacy regulations (GDPR, HIPAA, etc.).
-
-5. **API Key Security**: 
-   - Never commit API keys to version control
-   - Use environment variables or secure key management
-   - Rotate API keys regularly
-   - Limit API key permissions to minimum required
-
-### Best Practices
-
-✅ Run in dedicated analysis VM or container  
-✅ Use network monitoring to track outbound connections  
-✅ Sanitize reports before sharing outside security team  
-✅ Maintain audit logs of all analyzed emails  
-✅ Keep tool and dependencies updated  
-✅ Validate tool output before taking action  
-✅ Follow your organization's incident response procedures  
-
----
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**Problem**: `ModuleNotFoundError: No module named 'X'`
-
-```bash
-# Solution: Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
-```
-
----
-
-**Problem**: Email parsing fails
-
-```bash
-# Solution: Verify .eml format
-# Export email properly from your email client
-# Ensure file is not corrupted
-file suspicious_email.eml  # Should show "RFC 822 mail text"
-```
-
----
-
-**Problem**: API enrichment fails
-
-```bash
-# Check API key configuration
-python phish_triage.py -f email.eml -v  # Verbose mode
-
-# Verify environment variables
-echo $VIRUSTOTAL_API_KEY
-echo $ABUSEIPDB_API_KEY
-
-# Test without enrichment
-python phish_triage.py -f email.eml  # Enrichment disabled by default
-```
-
----
-
-**Problem**: Permission errors
-
-```bash
-# Fix directory permissions
-chmod 755 ./reports/
-chmod 755 ./samples/
-
-# Run with appropriate user permissions
-# Avoid running as root unless absolutely necessary
-```
-
----
-
-**Problem**: Slow processing on large batches
-
-```bash
-# Process smaller batches
-find emails/ -name "*.eml" | head -100 | xargs -I {} python phish_triage.py -f {}
-
-# Disable enrichment for faster processing
-python phish_triage.py -d emails/
-
-# Use verbose mode to identify bottlenecks
-python phish_triage.py -d emails/ -v
-```
-
----
-
-### Getting Help
-
-If you encounter issues not covered here:
-
-1. 📖 Check the [GitHub Issues](https://github.com/ashishjuley10/phish-triage-kit/issues) page
-2. 🔍 Search existing issues for similar problems
-3. 🆕 Open a new issue with:
-   - Tool version (`python phish_triage.py --version`)
-   - Error messages (full traceback)
-   - Steps to reproduce
-   - Operating system and Python version
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-### Ways to Contribute
-
-- 🐛 Report bugs and issues
-- 💡 Suggest new features
-- 📝 Improve documentation
-- 🔧 Submit bug fixes
-- ✨ Add new threat intelligence integrations
-- 🧪 Write unit tests
-- ⭐ Star the repository
-
-### Contribution Workflow
-
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
-3. **Make** your changes and test thoroughly
-4. **Commit** with clear messages: `git commit -m "Add: URLScan integration"`
-5. **Push** to your fork: `git push origin feature/amazing-feature`
-6. **Open** a Pull Request with detailed description
-
-### Development Guidelines
-
-- Follow **PEP 8** style guidelines
-- Add **docstrings** to all functions
-- Write **unit tests** for new features
-- Update **documentation** as needed
-- Keep commits **atomic** and **focused**
-- Test with multiple email samples
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-### MIT License Summary
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the following conditions:
-
-- The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-- The software is provided "AS IS", WITHOUT WARRANTY OF ANY KIND.
-
----
-
-## ⚖️ Disclaimer
-
-This tool is provided for **educational and authorized security research purposes only**.
-
-### Legal Notice
-
-- ✅ **Authorized Use Only**: Only analyze emails you have explicit permission to examine
-- ⚠️ **No Warranty**: This software is provided "as is" without warranties of any kind
-- 🚫 **Liability**: The authors are not responsible for any misuse or damage caused by this tool
-- 📜 **Compliance**: Users must comply with all applicable laws, regulations, and organizational policies
-- 🎯 **Ethical Use**: This tool should only be used for defensive security and threat research
-
-### Responsible Use Guidelines
-
-- Do NOT use for unauthorized email interception or monitoring
-- Respect privacy laws and data protection regulations (GDPR, CCPA, etc.)
-- Obtain proper authorization before analyzing organizational emails
-- Use findings responsibly and report threats through proper channels
-- Follow your organization's incident response procedures
-- Do NOT weaponize extracted IOCs or techniques for malicious purposes
-
----
-
-## 🙏 Acknowledgments
-
-This project leverages the following open-source libraries and threat intelligence sources:
-
-- **Email Parsing**: Python's `email` and `email.parser` libraries
-- **Threat Intelligence**: 
-  - [URLhaus](https://urlhaus.abuse.ch/) by abuse.ch
-  - [VirusTotal](https://www.virustotal.com/) by Chronicle Security
-  - [AbuseIPDB](https://www.abuseipdb.com/) by Marathon Studios
-- **Community**: Thanks to all contributors and the infosec community
-
----
-
-## 📞 Contact & Support
-
-- **GitHub Issues**: [Report bugs or request features](https://github.com/ashishjuley10/phish-triage-kit/issues)
-- **Pull Requests**: [Contribute improvements](https://github.com/ashishjuley10/phish-triage-kit/pulls)
-- **Author**: [@ashishjuley10](https://github.com/ashishjuley10)
-
----
-
-## 🗺️ Roadmap
-
-### Planned Features
-
-- [ ] **Machine Learning**: ML-based phishing detection models
-- [ ] **YARA Rules**: Custom YARA rule scanning for attachments
-- [ ] **MISP Integration**: Export IOCs to MISP threat sharing platform
-- [ ] **Sandbox Integration**: Automated malware analysis via Cuckoo/Any.Run
-- [ ] **Email Formats**: Support for .msg, .pst, and .mbox formats
-- [ ] **Real-time Monitoring**: IMAP/EWS integration for live monitoring
-- [ ] **Web Dashboard**: Interactive web UI for analysis and reporting
-- [ ] **PDF Reports**: Generate professional PDF reports
-- [ ] **Timeline Analysis**: Temporal correlation of phishing campaigns
-- [ ] **Header Forgery Detection**: Advanced header manipulation detection
-
-### Version History
-
-**v1.0.0** (Current - January 2026)
-- ✅ Initial release
-- ✅ Email parsing and IOC extraction
-- ✅ SPF/DKIM/DMARC analysis
-- ✅ Threat intelligence enrichment (URLhaus, VT, AbuseIPDB)
-- ✅ Campaign correlation
-- ✅ Multiple output formats
-- ✅ Batch processing
-
----
-
-<div align="center">
-
-**Made with ❤️ for SOC analysts and threat researchers**
-
-⭐ **Star this repo** if you find it useful!
-
-*Last Updated: January 30, 2026*
-
-</div>
-"""
-
-# Save to output directory
-output_path = '/mnt/user-data/outputs/README.md'
-with open(output_path, 'w', encoding='utf-8') as f:
-    f.write(improved_readme)
-
-print("✅ README.md created successfully!")
-print(f"📁 Location: {output_path}")
-```
+This helps move from single-email triage to campaign-style review.
 
+## Benchmark snapshot
+
+A benchmark run on a 120-email corpus produced:
+
+| Test | Result |
+|---|---:|
+| Emails processed | 120/120 |
+| Parsing failures | 0 |
+| Single-worker throughput | 576 emails/sec |
+| Best parallel throughput | 1,153 emails/sec |
+| Best worker setting | 4 workers |
+
+These results are hardware and corpus dependent.
+
+## Sample phishing analysis report
+
+### Overview
+
+This is a sample analyst-style report produced from a suspicious phishing-style `.eml` file.
+
+The purpose of this report is to show how the Phish Triage Kit supports first-pass phishing triage by extracting indicators, identifying suspicious patterns, and producing a structured summary for further review.
+
+### Verdict
+
+**Verdict:** Phish  
+**Confidence:** High  
+**Risk score:** 17
+
+### Email summary
+
+| Field | Value |
+|---|---|
+| Subject | Account Update Required |
+| Sender | support@paypai-secure.com |
+| Reply-To | support@paypai-secure.com |
+| Recipient | user@example.com |
+| Attachment | None observed in sample |
+
+### Key findings
+
+The email was assessed as high-risk due to multiple phishing indicators:
+
+- The message uses account-security urgency to pressure the recipient.
+- The email contains credential-request language.
+- The email includes a suspicious lookalike domain.
+- One URL uses HTTP rather than HTTPS.
+- One URL is hosted directly on an IP address.
+- A URL shortener is present, which may hide the final destination.
+- The domain appears designed to impersonate a known brand.
+
+### Extracted indicators
+
+| Type | Indicator | Notes |
+|---|---|---|
+| URL | `http://185.92.10.10/update` | IP-hosted URL and non-HTTPS |
+| URL | `https://bit.ly/abc123` | URL shortener |
+| URL | `https://paypai-secure.com/login` | Lookalike phishing-style domain |
+| Domain | `paypai-secure.com` | Possible brand impersonation |
+| Domain | `bit.ly` | URL shortening service |
+| IP | `185.92.10.10` | Direct IP-hosted URL |
+
+### Analyst reasoning
+
+The strongest signal is the use of a lookalike domain: `paypai-secure.com`.
+
+This resembles a brand-impersonation pattern where attackers register a domain that looks visually similar to a legitimate service. The goal is usually to make the recipient believe they are logging into a trusted platform.
+
+The IP-hosted URL is also suspicious because legitimate customer-facing login portals normally use branded domains with valid HTTPS. The non-HTTPS link increases risk because credentials or session data could be exposed or intercepted.
+
+The URL shortener adds another risk because it hides the final destination from the user and makes quick manual inspection harder.
+
+### Recommended analyst action
+
+Recommended next steps:
+
+1. Do not click the links directly on a host machine.
+2. Investigate URLs in a safe sandbox or isolated VM.
+3. Check domain age, DNS records, hosting provider, and reputation.
+4. Search for shared indicators across other emails.
+5. Block confirmed malicious domains, IPs, and URLs where appropriate.
+6. Preserve the original `.eml` file for evidence and further investigation.
+
+## Security notes
+
+This tool is for defensive security learning, phishing triage, and authorised research only.
+
+When analysing suspicious emails:
+
+- Use a VM or isolated environment
+- Do not open or execute attachments
+- Do not browse suspicious links directly from your host machine
+- Treat email content as potentially sensitive
+- Be careful when enabling external enrichment because IOCs may be sent to third-party services
+
+## Limitations
+
+- This is a triage tool, not a malware sandbox
+- It does not perform dynamic malware analysis
+- It does not currently support `.msg`, `.pst`, or live mailbox ingestion
+- API enrichment depends on provider availability, API keys, and rate limits
+- Scoring is rule-based and should be reviewed by a human analyst before action is taken
+
+## Skills demonstrated
+
+- Python security automation
+- Email and MIME parsing
+- IOC extraction and defanging
+- Phishing and malicious URL triage
+- Rule-based scoring
+- Batch processing
+- Multiprocessing
+- JSON, CSV, and Markdown reporting
+- Campaign correlation concepts
+- Threat-intelligence enrichment design
+- Defensive security documentation
+
+## Author
+
+Ashish Juley  
+BSc (Hons) Cyber Security & Digital Forensics  
+GitHub: github.com/ashishjuley10
